@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Menu } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
@@ -19,7 +19,7 @@ const INGEST_URL = "http://localhost:4000/rag/ingest";
 // Configure axios defaults to send credentials
 axios.defaults.withCredentials = true;
 
-export default function ModulesPage() {
+function ModulesPageContent() {
     const searchParams = useSearchParams();
     const courseId = searchParams.get('courseId') || '';
     const [modules, setModules] = useState<Module[]>([]);
@@ -600,7 +600,15 @@ export default function ModulesPage() {
                     setAddItemModalOpen(false);
                     setCurrentModuleForItem(null);
                 }}
-                onConfirm={handleConfirmAddItem}
+                onConfirm={(data) => {
+                    if (currentModuleForItem) {
+                        handleConfirmAddItem({
+                            ...data,
+                            moduleId: currentModuleForItem,
+                            courseId: courseId
+                        });
+                    }
+                }}
             />
 
             <EditContentItemModal
@@ -613,5 +621,13 @@ export default function ModulesPage() {
                 item={currentItem?.item || null}
             />
         </div>
+    );
+}
+
+export default function ModulesPage() {
+    return (
+        <Suspense fallback={<div className="flex h-full w-full items-center justify-center bg-white">Loading...</div>}>
+            <ModulesPageContent />
+        </Suspense>
     );
 }

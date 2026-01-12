@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AssessmentForm from '../../../components/AssessmentForm';
 import { AssessmentConfig } from '../../../types/types';
 import axios from 'axios';
 import { useAppStore } from '@/store/useAppStore';
 
-const CreateTestPage: React.FC = () => {
+const CreateTestPageContent: React.FC = () => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [course_id, setCourseId] = useState('');
@@ -57,6 +57,14 @@ const CreateTestPage: React.FC = () => {
                 <AssessmentForm onStart={handleStartSetup} course_id={course_id} />
             </div>
         </div>
+    );
+};
+
+const CreateTestPage: React.FC = () => {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>}>
+            <CreateTestPageContent />
+        </Suspense>
     );
 };
 

@@ -53,7 +53,7 @@ export function AddItemModal({ isOpen, onClose, onConfirm }: AddItemModalProps) 
                                 {type === 'video' && <Video size={20} className="mb-2" />}
                                 {type === 'reading' && <BookOpen size={20} className="mb-2" />}
 
-                                <span className="text-xs uppercase tracking-wide truncate w-full text-center">{type === 'material' ? 'Material' : type}</span>
+                                <span className="text-xs uppercase tracking-wide truncate w-full text-center">{type}</span>
                             </button>
                         ))}
                     </div>

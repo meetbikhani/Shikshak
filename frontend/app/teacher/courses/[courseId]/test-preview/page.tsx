@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Search, User, FileText, CheckCircle } from 'lucide-react';
 import { dummyTests, dummySubmissions, dummyQuestions, Test, StudentSubmission, Question } from '@/types/test';
@@ -8,7 +8,7 @@ import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import { useAppStore } from '@/store/useAppStore';
 
-export default function TestPreviewPage() {
+function TestPreviewPageContent() {
     const router = useRouter();
     const params = useParams();
     const courseId = params.courseId as string;
@@ -399,5 +399,13 @@ export default function TestPreviewPage() {
                 </div>
             </main>
         </div>
+    );
+}
+
+export default function TestPreviewPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center bg-gray-50">Loading...</div>}>
+            <TestPreviewPageContent />
+        </Suspense>
     );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
 import { AppState, AssessmentConfig, AssessmentReport, QuestionEntry } from '../../../types/types';
@@ -11,7 +11,7 @@ import { useAppStore } from '@/store/useAppStore';
 
 
 
-const StartTestPage: React.FC = () => {
+const StartTestPageContent: React.FC = () => {
     const router = useRouter();
     // Start at PERMISSIONS directly, as SETUP is done in create page
     const [appState, setAppState] = useState<AppState>(AppState.PERMISSIONS);
@@ -233,7 +233,7 @@ const StartTestPage: React.FC = () => {
     const handleLiveMessage = useCallback(async (message: LiveServerMessage) => {
         if (isFinishingRef.current) return;
         try {
-            const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+            const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
             if (base64Audio && outputAudioCtxRef.current) {
                 setIsAiSpeaking(true);
                 const ctx = outputAudioCtxRef.current;
@@ -577,6 +577,14 @@ const StartTestPage: React.FC = () => {
                 )}
             </div>
         </div>
+    );
+};
+
+const StartTestPage: React.FC = () => {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>}>
+            <StartTestPageContent />
+        </Suspense>
     );
 };
 
