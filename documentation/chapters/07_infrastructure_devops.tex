@@ -1,0 +1,34 @@
+\chapter{Infrastructure \& DevOps}
+
+\section{The Cloud Agnostic Promise}
+While currently deployed on Microsoft Azure, Shikshak is engineered to be portable. We use \textbf{Terraform} for Infrastructure as Code (IaC). This means we describe our infrastructure in declarative \texttt{.tf} files rather than clicking buttons in a web console. To migrate to AWS or Google Cloud, we would only need to swap the Terraform provider modules (e.g., changing \texttt{azurerm\_kubernetes\_cluster} to \texttt{aws\_eks\_cluster}). The application logic itself, running in containers, remains unchanged.
+
+This "Cloud Neutrality" gives us negotiating leverage. If Azure raises prices, we can threaten to move to AWS. It also protects us from vendor lock-in, ensuring the long-term viability of the project.
+
+\section{Kubernetes Architecture}
+We use a standard K8s Cluster topology designed for high resilience:
+\begin{itemize}
+    \item \textbf{Ingress Controller:} NGINX Ingress handles all incoming HTTP/HTTPS traffic, SSL termination, and Path-based routing.
+    \item \textbf{Service Mesh:} We use Istio to create a mesh between our microservices. This handles mTLS (Mutual TLS) encryption between services, ensuring that even if a hacker gets into our internal network, they cannot sniff traffic between the Auth Service and the Database.
+    \item \textbf{Observability:} We run the standard "PromStack". Prometheus scrapes metrics, Grafana visualizes them on dashboards, and Jaeger provides distributed tracing to help us debug slow requests that touch multiple microservices.
+\end{itemize}
+
+\begin{deepdive}[Zero Downtime Deployments]
+We use \textbf{Rolling Updates} for all deployments.
+When deploying version \texttt{v2.0} of the Auth Service:
+1. K8s spins up 1 new pod of \texttt{v2.0}.
+2. It waits for the \texttt{readinessProbe} to pass (this might check if the service can connect to the DB).
+3. Once ready, it kills 1 old pod of \texttt{v1.0}.
+4. This repeats until all pods are replaced.
+If \texttt{v2.0} fails to start (e.g., due to a bad config), the rollout pauses automatically, ensuring 100\% uptime for users. We never update in place; we always "Roll Forward".
+\end{deepdive}
+
+\section{Disaster Recovery (DR)}
+Our DR strategy focuses on two key metrics:
+\subsection{RPO (Recovery Point Objective)}
+"How much data can we lose?" -> \textbf{5 minutes}.
+This is achieved via continuous WAL (Write Ahead Log) archiving of the Postgres databases to a separate geo-redundant storage account. If the primary database melts down, we can replay the logs up to the last 5 minutes.
+
+\subsection{RTO (Recovery Time Objective)}
+"How long to get back online?" -> \textbf{15 minutes}.
+This is achieved via our automated Terraform scripts. In a true catastrophe (e.g., an entire Azure region going dark), we can run a single command to provision a fresh cluster in a secondary region, hydrate it with the backed-up data, and switch the DNS records to point to the new cluster.

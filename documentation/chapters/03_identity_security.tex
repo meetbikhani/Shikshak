@@ -1,0 +1,42 @@
+\chapter{Identity \& Security}
+
+\section{The Federated Identity Model}
+Shikshak is designed to be the central hub of a user's educational identity, but not necessarily the source of truth for their credentials. We support a federated model:
+
+\begin{itemize}
+    \item \textbf{Social Login:} Google, GitHub, LinkedIn (via OAuth 2.0). This allows developers and students to use their existing identities, reducing friction during the signup process.
+    \item \textbf{Enterprise Login:} SAML 2.0 / OIDC for university SSO (Single Sign-On). Large universities often have their own Active Directory or Shibboleth setups. We integrate directly with these Identity Providers (IdPs) so students don't need to manage yet another password.
+    \item \textbf{Local Login:} Traditional Email/Password (bcrypt hash). For independent learners or smaller institutions without centralized IT, we store salted and hashed passwords securely.
+\end{itemize}
+
+Implementing this federation requires a robust abstraction layer. We use an internal "User" service that maps a unique Shikshak ID to multiple external \texttt{sub} (subject) identifiers. This means a user can log in with GitHub today and Google tomorrow, and as long as the email matches (or accounts are linked), they access the same profile.
+
+\section{JWT Anatomy \& Security}
+We use JSON Web Tokens (Stateless Authentication) to avoid database lookups on every API call. This is crucial for performance but introduces security risks if not handled correctly.
+\begin{deepdive}[The Access/Refresh Token Pair Pattern]
+\textbf{Access Token:} Short-lived (15 minutes). Signed with RS256. Contains claims like \texttt{user\_id}, \texttt{role}, \texttt{university\_id}. Sent in the \texttt{Authorization: Bearer} header. Because it expires quickly, we don't need to maintain a revocation list for access tokens.
+
+\textbf{Refresh Token:} Long-lived (7 days). Stored in an \texttt{HttpOnly}, \texttt{Secure}, \texttt{SameSite=Strict} cookie. Used to obtain new Access Tokens. This token is opaque and stored in our database.
+
+\textit{Why this matters:} If an XSS attack steals the Access Token, the damage is limited to 15 minutes. The attacker cannot steal the Refresh Token (because JavaScript cannot read the cookie), so they cannot maintain long-term access. This "short leash" policy is industry standard for banking and secure applications.
+\end{deepdive}
+
+\section{Role-Based Access Control (RBAC)}
+Permissions are granular and cascading. We do not simply have "Admin" and "User". We have a sophisticated matrix of permissions:
+\begin{itemize}
+    \item \texttt{sys.admin}: God mode. Can see all tenants.
+    \item \texttt{inst.admin}: Can manage users within their university.
+    \item \texttt{course.creator}: Can create courses, upload content, and grade.
+    \item \texttt{course.mentor}: Can grade and view analytics, but cannot edit content.
+    \item \texttt{student}: Can view content and submit assignments.
+\end{itemize}
+
+This matrix is enforced at the API Gateway level. Every request carries the user's role in the JWT. The Gateway checks the route metadata against the user's role. If a \texttt{student} tries to POST to \texttt{/api/grade}, the request is rejected with a 403 Forbidden before it even reaches the Course Service, saving valuable compute resources.
+
+\begin{casestudy}[Security Breach Simulation]
+During our quarterly "Red Team" exercise, we simulated a compromised teacher account.
+\textbf{Attack Vector:} Phished password.
+\textbf{Mitigation:} The system detected an "Impossible Travel" anomaly (login from Russia 2 hours after login from New York).
+\textbf{Automated Response:} The Auth Service immediately revoked all Refresh Tokens for that user and forced a password reset via email verification.
+\textbf{Result:} The attacker gained access for only 12 minutes and was unable to exfiltrate significant student PII before the session was terminated.
+\end{casestudy}

@@ -1,0 +1,155 @@
+\chapter{Appendix A: API Reference}
+
+This section details the RESTful API endpoints available in the Shikshak ecosystem. All endpoints are prefixed with \texttt{/api/v1}.
+Authentication checks are performed at the gateway level.
+
+\section{Authentication}
+
+\subsection{POST /auth/login}
+\textbf{Description:} Authenticates a user via email/password or SSO token exchange. Returns a JWT access token and sets a secure HttpOnly refresh cookie.
+\begin{itemize}
+    \item \textbf{Auth Required:} No
+    \item \textbf{Rate Limit:} 5 req/min
+\end{itemize}
+\textbf{Parameters:}
+\begin{enumerate}
+    \item \texttt{email} (string, required): The user's registered email address.
+    \item \texttt{password} (string, optional): The user's password (if local auth).
+    \item \texttt{provider} (string, optional): One of 'google', 'github', 'linkedin'.
+    \item \texttt{id\_token} (string, optional): The OIDC token from the provider if using SSO.
+\end{enumerate}
+\textbf{Response (200 OK):}
+\begin{verbatim}
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIs...",
+  "expires_in": 900,
+  "user": {
+    "id": "usr_12345",
+    "role": "student",
+    "avatar": "https://cdn.shikshak.io/..."
+  }
+}
+\end{verbatim}
+
+\subsection{POST /auth/refresh}
+\textbf{Description:} Uses the HttpOnly cookie to issue a new Access Token. Used silently by the frontend when the 401 status is intercepted.
+\begin{itemize}
+    \item \textbf{Auth Required:} No (Cookie based)
+    \item \textbf{Rate Limit:} 10 req/min
+\end{itemize}
+\textbf{Response (200 OK):}
+\begin{verbatim}
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIs...",
+  "expires_in": 900
+}
+\end{verbatim}
+
+\section{Course Management}
+
+\subsection{GET /courses}
+\textbf{Description:} limits and pagination supported.
+\begin{itemize}
+    \item \textbf{Auth Required:} Yes
+    \item \textbf{Rate Limit:} 100 req/min
+\end{itemize}
+\textbf{Query Parameters:}
+\begin{enumerate}
+    \item \texttt{page} (int, default=1): The page number.
+    \item \texttt{limit} (int, default=20): Items per page.
+    \item \texttt{sort} (string, default='-created\_at'): Sort field.
+    \item \texttt{search} (string): Full-text search on title and description.
+    \item \texttt{tags} (array): Filter by usage tags (e.g. 'python', 'react').
+\end{enumerate}
+
+\subsection{POST /courses}
+\textbf{Description:} Creates a new course draft. Only available to instructors.
+\begin{itemize}
+    \item \textbf{Auth Required:} Yes (Role: Instructor+)
+\end{itemize}
+\textbf{Body:}
+\begin{verbatim}
+{
+  "title": "Advanced Kubernetes Patterns",
+  "description": "Learn how to manage...",
+  "price": 49.99,
+  "currency": "USD"
+}
+\end{verbatim}
+
+\subsection{GET /courses/:id/modules}
+\textbf{Description:} returns the full curriculum tree for a specific course.
+\begin{itemize}
+    \item \textbf{Auth Required:} Yes (Enrolled Student)
+\end{itemize}
+
+\subsection{POST /courses/:id/enroll}
+\textbf{Description:} Enrolls the current user in the course. Triggers payment flow if paid.
+\begin{itemize}
+    \item \textbf{Auth Required:} Yes
+\end{itemize}
+
+\section{Video Streaming}
+
+\subsection{GET /video/:id/manifest.m3u8}
+\textbf{Description:} Returns the HLS master playlist for adaptive bitrate streaming.
+\begin{itemize}
+    \item \textbf{Auth Required:} Yes
+    \item \textbf{Cookies:} Requires a signed Cloudfront cookie.
+\end{itemize}
+
+\subsection{GET /video/:id/segment/:quality/:ts}
+\textbf{Description:} Returns the actual .ts video segment.
+\begin{itemize}
+    \item \textbf{Auth Required:} Yes (Signed Cookie)
+\end{itemize}
+
+\section{Proctoring}
+
+\subsection{POST /proctor/session/start}
+\textbf{Description:} Initializes a new proctoring session. Performs system checks (camera, mic).
+\begin{itemize}
+    \item \textbf{Auth Required:} Yes
+\end{itemize}
+
+\subsection{POST /proctor/event}
+\textbf{Description:} Logs a client-side proctoring event.
+\textbf{Body:}
+\begin{verbatim}
+{
+  "session_id": "sess_9876",
+  "timestamp": 1709823423,
+  "event_type": "GAZE_VIOLATION",
+  "confidence": 0.88,
+  "metadata": {
+    "pitch": -25.4,
+    "yaw": 32.1
+  }
+}
+\end{verbatim}
+
+\subsection{POST /proctor/snapshot}
+\textbf{Description:} Uploads an encrypted image blob for manual review if flexible flagging is enabled.
+\begin{itemize}
+    \item \textbf{Body:} Form-Data (Image)
+\end{itemize}
+
+\section{Analytics}
+\subsection{GET /analytics/student/progress}
+\textbf{Description:} Returns granular progress data for the dashboard.
+\subsection{GET /analytics/course/dropoff}
+\textbf{Description:} Returns a histogram of where students stop watching videos.
+
+\section{User Profile}
+\subsection{GET /user/me}
+\textbf{Description:} Returns the currently logged in user's profile.
+\subsection{PUT /user/me}
+\textbf{Description:} Update profile fields (bio, avatar).
+\subsection{DELETE /user/me}
+\textbf{Description:} GDPR Right to be Forgotten request.
+
+\section{System Health}
+\subsection{GET /health}
+\textbf{Description:} Liveness probe for K8s. Returns 200 OK.
+\subsection{GET /ready}
+\textbf{Description:} Readiness probe. Checks DB connections.

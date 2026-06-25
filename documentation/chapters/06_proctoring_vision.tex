@@ -1,0 +1,73 @@
+\chapter{Proctoring Vision}
+
+\section{The Ethics of Surveillance}
+Proctoring is controversial, and rightfully so. Traditional commercial solutions are essentially "Spyware"—they take over the operating system, disable keyboard shortcuts, read browser history, and upload continuous video feeds to a remote server for human review. This is a privacy nightmare and often discriminates against students with poor internet connections or non-traditional home environments.
+
+Shikshak takes a fundamentally different \textbf{Privacy-Preserving Approach}.
+\begin{itemize}
+    \item \textbf{Client-Side Logic:} The AI models run entirely on the student's laptop in the browser (via TensorFlow.js), not on our servers. No raw video ever leaves the user's device.
+    \item \textbf{Ephemeral Data:} Since we don't stream video, we don't store it. Only "Event Metadata" (e.g., "Looked away at 14:02:45", "Multiple voices detected at 14:10:00") is encrypted and sent to the server. This reduces bandwidth usage by 99% and protects student privacy.
+\end{itemize}
+
+\section{Computer Vision Pipeline}
+We utilize Google's \texttt{MediaPipe} framework for lightweight inference. This framework is highly optimized for edge devices and can run at 30fps even on a mid-range Chromebook.
+
+\subsection{1. Face Mesh (468 Landmarks)}
+We map 468 points on the user's face to create a 3D geometry. This allows us to calculate the \textbf{Head Pose Euler Angles} (Pitch, Yaw, Roll).
+\begin{itemize}
+    \item If $|Yaw| > 30^{\circ}$, the student is likely looking sideways at a roommate or a cheat sheet.
+    \item If $|Pitch| > 25^{\circ}$, the student is looking down, potentially at a phone or notes in their lap.
+\end{itemize}
+We apply a temporal smoothing filter to these values to prevent false positives from natural jerky movements.
+
+\subsection{2. Iris Tracking}
+Head pose isn't enough. A student can keep their head still but move their eyes to read a sticky note on the monitor bezel. We track the iris position relative to the eye corners. This requires high-resolution input, so we use a "Region of Interest" crop around the eyes to boost effective resolution before feeding it to the iris model.
+
+\begin{casestudy}[Anomaly: The "Second Face"]
+In Beta testing, we detected a "Multiple Faces" event.
+\textbf{Scenario:} A roommate walked to the fridge behind the student during an exam.
+\textbf{System Reaction:} The system logged the event with a confidence score of 0.8. It did NOT auto-fail the student.
+\textbf{Teacher Review:} The instructor viewed the snapshot (taken locally and uploaded only for flags), saw it was harmless background movement, and dismissed the flag.
+\textbf{Lesson:} AI is a tool for flagging, humans are the judges for grading. We never allow the AI to make the final academic decision.
+\end{casestudy}
+
+\section{Audio Analysis}
+Visual cheating is only half the picture. Audio cheating (someone reading answers to the student) is harder to detect. We use the Web Audio API to analyze the Fast Fourier Transform (FFT) of the microphone input.
+\begin{enumerate}
+    \item \textbf{Noise Floor:} We calibrate the ambient noise level at the start of the exam (e.g., a humming fan).
+    \item \textbf{Voice Activity Detection (VAD):} We detect energy spikes specifically in human speech frequencies (85Hz - 255Hz).
+    \item \textbf{Keyword Spotting:} (Optional) We can run a tiny keyword model to detect specific trigger words if necessary, though this is rarely enabled due to privacy concerns.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    proctorstep/.style={
+        rectangle,
+        draw=techAccent,
+        thick,
+        fill=white,
+        rounded corners,
+        minimum width=4cm,
+        minimum height=1cm,
+        align=center,
+        font=\sffamily\small
+    }
+]
+
+\node[proctorstep] (cam) {Webcam Feed};
+\node[proctorstep, below=of cam] (face) {Face Detection Mesh};
+\node[proctorstep, below=of face] (gaze) {Gaze Vector Analysis};
+\node[proctorstep, below=of gaze] (logic) {Anomaly Logic};
+\node[proctorstep, below=of logic, fill=red!10, draw=red] (flag) {Flag Violation};
+
+\draw[->, thick, techBlue] (cam) -- (face);
+\draw[->, thick, techBlue] (face) -- (gaze);
+\draw[->, thick, techBlue] (gaze) -- (logic);
+\draw[->, thick, techBlue] (logic) -- (flag);
+
+\node[right=1cm of logic, font=\small] {If gaze\_angle > 45 deg};
+\end{tikzpicture}
+\caption{Client-Side Proctoring Logic}
+\end{figure}

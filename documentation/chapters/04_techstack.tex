@@ -1,0 +1,24 @@
+\chapter{Technology Stack}
+
+\begin{infobox}[Philosophy]
+We choose "Boring Technology" for core infrastructure (Postgres, Node) and "Bleeding Edge" only where it provides competitive advantage (Vector DBs, Next.js App Router).
+\end{infobox}
+
+\section{Frontend: Next.js 15}
+\begin{itemize}
+    \item \textbf{Server Components}: Fetches data constantly on the server, reducing client bundle size.
+    \item \textbf{Tailwind CSS 4}: Utility-first styling for rapid UI development.
+\end{itemize}
+
+\section{Backend: Node.js}
+\begin{itemize}
+    \item \textbf{Event Loop}: Handles I/O bound tasks (database queries) efficiently.
+    \item \textbf{TypeScript}: Ensures type safety across the entire stack.
+\end{itemize}
+
+\section{Database Layer}
+\subsection{MongoDB (Primary)}
+Stores hierarchical data like Course -> Module -> Lesson.
+
+\subsection{Redis (Cache \& Vector)}
+Stores user sessions (for speed) and Embedding Vectors (for AI search).

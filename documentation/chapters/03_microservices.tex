@@ -1,0 +1,66 @@
+\chapter{Detailed Microservices Breakdown}
+
+\section{API Gateway}
+The gateway is the single point of entry. It handles:
+\begin{itemize}
+    \item \textbf{SSL Termination}: High-performance decryption.
+    \item \textbf{Rate Limiting}: Preventing abuse.
+    \item \textbf{Routing}: Directing \texttt{/api/courses} to the Course Service.
+\end{itemize}
+
+\section{RAG Service (The "Brain")}
+This service powers the AI features. It uses a Retrieval-Augmented Generation pipeline.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=2cm,
+    process/.style={
+        rectangle,
+        draw=shikscolPrimary,
+        fill=shikscolLight,
+        rounded corners,
+        minimum height=1.5cm,
+        minimum width=3cm,
+        align=center,
+        font=\sffamily\bfseries
+    },
+    data/.style={
+        cylinder,
+        shape border rotate=90,
+        aspect=0.25,
+        draw=shikscolDark,
+        fill=white,
+        minimum height=1cm,
+        minimum width=1cm,
+        align=center
+    }
+]
+
+\node[process] (query) {User Query};
+\node[process, right=of query] (embed) {Embedding\\Model};
+\node[data, right=of embed] (vector) {Vector\\Index};
+\node[process, below=of vector] (retrieve) {Context\\Retrieval};
+\node[process, left=of retrieve] (llm) {LLM\\(GPT-4o)};
+\node[process, left=of llm] (answer) {Final Answer};
+
+\draw[->, thick] (query) -- (embed);
+\draw[->, thick] (embed) -- (vector);
+\draw[->, thick, dashed] (vector) -- (retrieve);
+\draw[->, thick] (retrieve) -- (llm);
+\draw[->, thick] (llm) -- (answer);
+\draw[->, thick, bend right] (answer) to (query);
+
+\end{tikzpicture}
+\caption{Artificial Intelligence Query Logic}
+\end{figure}
+
+\section{Course Management Service}
+Handles the "nouns" of the system:
+\begin{itemize}
+    \item Courses
+    \item Modules
+    \item Lessons
+    \item Metadata (Tags, Difficulty Levels)
+\end{itemize}
+It is built on Node.js and MongoDB to handle flexible schema requirements (e.g., some lessons are videos, some are quizzes).

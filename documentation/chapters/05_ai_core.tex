@@ -1,0 +1,34 @@
+\chapter{The AI Core (RAG)}
+
+\section{Beyond Keyword Search}
+Traditional search techniques, such as those used by Elasticsearch or Solr (TF-IDF/BM25), fail in the educational context. If a student searches for "loops", a keyword search might return a generic introduction to loops. But if they ask "Why is my while loop running forever?", keyword search will likely fail to understand the nuance of the problem: an infinite loop bug.
+
+Shikshak utilizes \textbf{Semantic Search} via Vector Embeddings to solve this. We project natural language into a 1536-dimensional geometric space where concepts that are semantically related are physically close together. In this vector space, "loop" and "iteration" cluster together, while "loop" and "fruit loops" (cereal) are far apart. This allows our system to understand the *intent* of the query, not just the vocabulary.
+
+\section{The Indexing Pipeline}
+The "Brain" of Shikshak is built continuously during the content ingestion phase. We do not index content at query time; it is pre-computed.
+\begin{enumerate}
+    \item \textbf{Text Extraction:} We run OCR on PDF slides and use the Whisper API to generate high-fidelity transcripts for every second of video content. This ensures even spoken concepts are searchable.
+    \item \textbf{Chunking Strategy:} We utilize a "Recursive Character Text Splitter". We don't just split by paragraph. We split by semantic units, ensuring each chunk is roughly 1000 tokens long with a 200-token overlap. This overlap is crucial; it ensures context isn't lost if a sentence is split across two chunks.
+    \item \textbf{Vectorization:} Currently, we use OpenAI's \texttt{text-embedding-3-small} model. This model offers an excellent balance between cost and performance, and its lower dimensionality compared to older Ada models allows for faster retrieval from our vector store.
+    \item \textbf{Upsert:} The resulting vectors, along with their metadata (Video ID, Timestamp, Author), are stored in Redis (RediSearch Module). We use HNSW (Hierarchical Navigable Small World) indexing, which allows for approximate nearest neighbor search in single-digit millisecond timestamps.
+\end{enumerate}
+
+\begin{deepdive}[The "Lost in the Middle" Phenomenon]
+Large Language Models struggle to utilize context found in the middle of a very large prompt window. To verify accuracy, Shikshak uses a \textbf{Reranking Step}. After retrieving the top 20 potentially relevant chunks from Redis, we pass them through a lightweight "Cross-Encoder" model (Cohere Rerank). This model scores each chunk's relevance to the specific query. We then discard the bottom 15 and only feed the top 5 distinct, high-relevance chunks to GPT-4. This significantly reduces hallucinations and improves the density of useful information in the prompt.
+\end{deepdive}
+
+\section{Prompt Engineering Strategy}
+We do not simply dump context into the prompt and hope for the best. We use a \textbf{Chain-of-Thought (CoT)} methodology to force the LLM to reason before it answers. 
+\subsection{The System Prompt structure:}
+\begin{verbatim}
+ROLE: You are an empathetic Socratic tutor.
+CONSTRAINT: Do not give the answer immediately. Guide the student.
+CONTEXT: {retrieved_chunks}
+HISTORY: {conversation_history}
+TASK: Answer the student's question based strictly on CONTEXT.
+\end{verbatim}
+By explicitly instructing the model to be Socratic, we prevent it from doing the student's homework for them. Instead, it asks leading questions that help the student arrive at the answer themselves, mimicking the behavior of an expert human tutor.
+
+\section{Feature: The "Explain Like I'm 5" Toggle}
+One of our most popular features is the ability for users to adjust the "Temperature" and "System Persona" on the fly. Toggling "ELI5 Mode" switches the underlying prompt to request analogies and simple vocabulary. For example, if a student is struggling with the concept of a "Linked List", the standard mode might explain it using memory pointers. The ELI5 mode would explain it as a "Treasure Hunt" where each clue points to the location of the next clue. This dynamic complexity adjustment is only possible with a generative backend.

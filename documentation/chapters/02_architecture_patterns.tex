@@ -1,0 +1,87 @@
+\chapter{Architecture Patterns}
+
+\section{The Microservices Manifesto}
+Shikshak adheres to a strict "Share Nothing" architecture. Each service owns its own data and communicates exclusively via defined APIs. This prevents the "Database Integration" anti-pattern where modifications to a schema in one service inadvertently break another.
+
+By decoupling our services, we achieve independent deployability. The "Auth Service" can be upgraded to key-rotate continuously without requiring a restart of the "Course Service". This separation of concerns is critical for maintaining velocity in a large engineering team, as it allows different squads to work on different parts of the platform simultaneously without stepping on each other's toes.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=1cm,
+    service/.style={
+        draw=techBlue,
+        thick,
+        fill=white,
+        rectangle,
+        rounded corners,
+        minimum width=3cm,
+        minimum height=1.5cm,
+        align=center,
+        font=\sffamily\bfseries
+    },
+    db/.style={
+        cylinder,
+        shape border rotate=90,
+        aspect=0.25,
+        draw=techGray,
+        fill=techLight,
+        minimum width=1.5cm,
+        minimum height=1.5cm,
+        align=center,
+        font=\sffamily\small
+    }
+]
+
+\node[service] (svc1) {Service A};
+\node[db, below=0.5cm of svc1] (db1) {DB A};
+\draw[->, thick] (svc1) -- (db1);
+
+\node[service, right=3cm of svc1] (svc2) {Service B};
+\node[db, below=0.5cm of svc2] (db2) {DB B};
+\draw[->, thick] (svc2) -- (db2);
+
+% Communication
+\draw[->, thick, techBlue, dashed] (svc1) -- node[above, font=\sffamily\small] {HTTP / gRPC} (svc2);
+
+% Forbidden
+\draw[->, thick, red, opacity=0.3] (svc1) -- node[below, font=\sffamily\tiny, rotate=20] {Direct DB Access (Forbidden)} (db2);
+
+\end{tikzpicture}
+\caption{The Database-per-Service Pattern}
+\end{figure}
+
+This pattern also allows for "Polyglot Persistence". We are not forced to use a single database technology for everything. The Course Service uses MongoDB because course schemas are hierarchical and varied. The Auth Service uses PostgreSQL for relational integrity. The AI Service uses Redis for vector similarity search. Each problem has the right tool.
+
+\section{Synchronous vs. Asynchronous Communications}
+One of the most critical decisions in distributed systems is choosing when to block and when to defer. We employ a hybrid model depending on the user's expectation of latency.
+
+\subsection{The Read Path (Synchronous)}
+When a user requests their profile, the response must be immediate. We use REST (over HTTP/2) for these read interactions. The API Gateway aggregates data from the User Service and Course Service and returns a unified JSON response. We enforce strict SLAs (Service Level Agreements) on these endpoints, typically aiming for sub-200ms response times. Caching at the CDN level and the Redis application level is heavily utilized to ensure these speeds.
+
+\subsection{The Write Path (Asynchronous/Event-Driven)}
+Writes are often complex side-effect triggers. When a student submits an assignment, it is not just a database insert; it triggers a cascade of actions.
+When a user submits an assignment:
+1. The submission is saved to object storage (Azure Blob).
+2. An event \texttt{ASSIGNMENT\_SUBMITTED} is fired onto the Kafka bus.
+3. The Notification Service listens and emails the teacher.
+4. The Analytics Service listens and updates the dashboard.
+5. The Gamification Service listens and awards XP points.
+
+\begin{deepdive}[Why Apache Kafka?]
+We chose Kafka over RabbitMQ because of its \textbf{log-based persistence}. If our Gamification Service crashes and is offline for 2 hours, it doesn't lose data. When it restarts, it simply replays the Kafka log from the last offset, processing all the missed assignment submissions in order. This provides powerful disaster recovery capabilities out of the box. Kafka also allows multiple consumer groups to read the same stream at different speeds, decoupling real-time needs from batch processing needs.
+\end{deepdive}
+
+\section{Scalability Patterns}
+
+\subsection{Horizontal Pod Autoscaling (HPA)}
+We deploy on Kubernetes (AKS). Each service defines CPU/Memory thresholds and scales automatically based on demand.
+\begin{itemize}
+    \item \textbf{Base Load:} 2 replicas (for high availability).
+    \item \textbf{Scale Up Trigger:} CPU usage > 70\%.
+    \item \textbf{Max Limit:} 50 replicas.
+\end{itemize}
+This allows the Course Service to scale up during Monday morning massive lecture drops, while the Proctoring Service stays small until Exam Review week. The cost savings of this elasticity are significant compared to provisioning fixed-size VMs for peak load.
+
+\subsection{Database Sharding}
+The core \texttt{courses} collection in MongoDB is sharded by \texttt{institution\_id}. This ensures that a massive university with 50,000 students essentially lives on its own dedicated shard, preventing their load from affecting the performance of smaller colleges on the platform. Sharding allows us to write-scale horizontally by simply adding more storage nodes, theoretically allowing the system to handle millions of concurrent users.

@@ -1,0 +1,43 @@
+\chapter{The Course Engine}
+
+\section{Content Hierarchy Design}
+Designing a schema for "Education" is notoriously difficult because pedagogy is diverse. A coding bootcamp, a history seminar, and a medical lab have completely different structural needs. A rigid "Module -> Lesson" structure is often too limiting for advanced courses.
+
+Shikshak uses a \textbf{Polymorphic Content Block} pattern.
+\begin{itemize}
+    \item \textbf{Course:} The top-level container, containing metadata, pricing, and enrollment rules.
+    \item \textbf{Curriculum:} An ordered tree of Sections. This structure allows for infinite nesting, although we limit the UI to 3 levels deep to prevent "click fatigue".
+    \item \textbf{Unit:} The atomic learning object.
+\end{itemize}
+
+A \texttt{Unit} is an abstract entity. It can take many forms:
+\begin{enumerate}
+    \item \texttt{VideoUnit}: A streaming HLS container with support for subtitles and multiple audio tracks.
+    \item \texttt{ArticleUnit}: Rich Markdown text with embedded math (KaTeX) and diagrams (Mermaid).
+    \item \texttt{QuizUnit}: An interactive assessment that can be multiple choice, fill-in-the-blank, or matching.
+    \item \texttt{CodeUnit}: An embedded Monaco editor with an execution sandbox for 12+ languages.
+\end{enumerate}
+
+\section{Video Transcoding Pipeline}
+The most computationally expensive part of the system is video processing. When a user uploads a 4K video, we cannot simply serve that file to a mobile user on a 3G connection.
+
+\begin{deepdive}[The 7-Step Transcoding Saga]
+1. \textbf{Upload:} Teacher uploads raw 4K \texttt{.mov} to a temporary S3 bucket.
+2. \textbf{Probe:} FFprobe analyzes codecs, frame rate, and bitrate to determine if the source is valid.
+3. \textbf{Split:} Large videos are split into 10-second segments. This allows us to parallelize the transcoding process across thousands of minimal CPU cores.
+4. \textbf{Transcode:} Workers convert segments to 1080p, 720p, 480p using H.264 profiles.
+5. \textbf{Merge \& Manifest:} An \texttt{.m3u8} playlist is generated for Adaptive Bitrate Streaming (HLS). This playlist tells the video player "If the bandwidth is high, play snippet A at 1080p; if it drops, switch to snippet B at 360p".
+6. \textbf{CDN Push:} Files are moved to Edge locations (Cloudflare R2) for global low-latency delivery.
+7. \textbf{Thumbnail:} AI selects the most "interesting" frame (high contrast, face present, not blurry) as the cover image.
+\end{deepdive}
+
+\section{Sandbox Execution Environment}
+For coding courses, we cannot allow students to run arbitrary code on our servers. A simple infinite loop or a fork bomb could crash the entire node.
+We use **Firecracker MicroVMs** (the same technology powering AWS Lambda).
+When a student clicks "Run Code":
+1. A microVM warm-boots in 120ms from a pre-baked snapshot.
+2. The code is injected via a secure socket.
+3. It executes with no network access (except whitelisted APIs for package installation).
+4. Output (stdout/stderr) is streamed back via Websocket in real-time.
+5. The VM is destroyed immediately after execution.
+This ensures total isolation. A malicious student cannot essentially "break out" of the container since it's a hardware-virtualized VM, not just a containerized process like Docker. This represents the gold standard in untrusted code execution.

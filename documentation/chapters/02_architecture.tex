@@ -1,0 +1,83 @@
+\chapter{System Architecture}
+
+\section{Microservices Design Pattern}
+Shikshak adopts a strictly decoupled microservices architecture. This allows for independent scaling, distinct deployment cycles, and fault isolation.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=2.5cm,
+    service/.style={
+        draw=none,
+        fill=white,
+        rectangle,
+        rounded corners=5pt,
+        minimum width=3cm,
+        minimum height=1.5cm,
+        align=center,
+        drop shadow={opacity=0.15},
+        font=\bfseries\sffamily,
+        top color=white,
+        bottom color=shikscolLight
+    },
+    db/.style={
+        cylinder,
+        shape border rotate=90,
+        aspect=0.25,
+        draw=shikscolDark,
+        fill=white,
+        minimum width=1.5cm,
+        minimum height=1.5cm,
+        align=center,
+        font=\small\sffamily
+    },
+    bus/.style={
+        draw=none,
+        fill=orange!10,
+        rounded corners,
+        inner sep=10pt,
+        fit=(kafka)
+    }
+]
+
+% API Gateway
+\node[service, draw=shikscolDark, line width=1pt] (gateway) {API Gateway\\(Entry Point)};
+
+% Services
+\node[service, below left=3cm of gateway, draw=shikscolPurple] (auth) {Auth Service};
+\node[service, below=3cm of gateway, draw=shikscolPrimary] (course) {Course Service};
+\node[service, below right=3cm of gateway, draw=shikscolBlue] (rag) {RAG Service};
+
+% Databases
+\node[db, below=1cm of auth] (db_auth) {User DB\\(Mongo)};
+\node[db, below=1cm of course] (db_course) {Course DB\\(Mongo)};
+\node[db, below=1cm of rag] (db_rag) {Vector DB\\(Redis)};
+
+% Kafka
+\node[rectangle, fill=orange!50, rounded corners, minimum width=8cm, minimum height=1cm, below=2cm of course] (kafka) {\textbf{Apache Kafka Event Bus}};
+
+% Connections - Sync (HTTP)
+\draw[->, ultra thick, shikscolDark] (gateway) -| (auth);
+\draw[->, ultra thick, shikscolDark] (gateway) -- (course);
+\draw[->, ultra thick, shikscolDark] (gateway) -| (rag);
+
+% Connections - Databases
+\draw[->, thick, dashed] (auth) -- (db_auth);
+\draw[->, thick, dashed] (course) -- (db_course);
+\draw[->, thick, dashed] (rag) -- (db_rag);
+
+% Event Flow
+\draw[->, dashed, orange, ultra thick] (auth) -- (kafka);
+\draw[->, dashed, orange, ultra thick] (course) -- (kafka);
+\draw[->, dashed, orange, ultra thick] (rag) -- (kafka);
+
+\end{tikzpicture}
+\caption{Microservices Interaction Architecture}
+\end{figure}
+
+\section{Event-Driven Logic}
+Instead of tight coupling where Service A calls Service B and waits, we use asynchronous events. This is critical for performance.
+
+\begin{featurebox}[Why Event Driven?]
+When a user uploads a video, the server doesn't "freeze" waiting for processing. It accepts the file, acknowledges the user, and fires a \texttt{VIDEO\_UPLOADED} event. Background workers pick this up. This ensures the UI is always snappy (sub-100ms response times) regardless of backend load.
+\end{featurebox}

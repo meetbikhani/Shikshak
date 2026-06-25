@@ -1,0 +1,47 @@
+\chapter{Advanced Features: AI Proctoring}
+
+\section{The Integrity Challenge}
+Remote exams are prone to cheating. Our system solves this without invasive desktop software.
+
+\section{Browser-Based Detection}
+We use \texttt{TensorFlow.js} running entirely in the browser.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    proctorstep/.style={
+        rectangle,
+        draw=shikscolAccent,
+        thick,
+        fill=white,
+        rounded corners,
+        minimum width=4cm,
+        minimum height=1cm,
+        align=center
+    }
+]
+
+\node[proctorstep] (cam) {Webcam Feed};
+\node[proctorstep, below=of cam] (face) {Face Detection Mesh};
+\node[proctorstep, below=of face] (gaze) {Gaze Vector Analysis};
+\node[proctorstep, below=of gaze] (logic) {Anomaly Logic};
+\node[proctorstep, below=of logic, fill=red!10, draw=red] (flag) {Flag Violation};
+
+\draw[->, thick, shikscolDark] (cam) -- (face);
+\draw[->, thick, shikscolDark] (face) -- (gaze);
+\draw[->, thick, shikscolDark] (gaze) -- (logic);
+\draw[->, thick, shikscolDark] (logic) -- (flag);
+
+\node[right=1cm of logic] {If gaze\_angle > 45 deg};
+\end{tikzpicture}
+\caption{Client-Side Proctoring Logic}
+\end{figure}
+
+\section{Privacy First}
+Since analysis happens on the client:
+\begin{itemize}
+    \item No video is streamed to servers (bandwidth friendly).
+    \item Only "violation snapshots" are uploaded.
+    \item Biometric data is deleted after the exam session.
+\end{itemize}

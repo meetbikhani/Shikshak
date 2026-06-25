@@ -1,0 +1,90 @@
+\chapter{Appendix C: Configuration Reference}
+
+This appendix lists all available configuration parameter keys for the \texttt{shikshak.yaml} configuration file. These values control the behavior of the core services.
+
+\section{Core Service Settings}
+\begin{enumerate}
+    \item \texttt{server.port} (Default: 3000): The HTTP port the main service listens on.
+    \item \texttt{server.host} (Default: 0.0.0.0): The bind address. Set to 127.0.0.1 for local dev.
+    \item \texttt{server.workers} (Default: auto): Number of Node.js cluster workers to spawn. Defaults to CPU core count.
+    \item \texttt{server.keepalive\_timeout} (Default: 5000): TCP Keep-Alive timeout in milliseconds.
+    \item \texttt{server.graceful\_shutdown\_timeout} (Default: 30000): Time to wait for active connections to close before SIGKILL.
+    \item \texttt{server.compression.enabled} (Default: true): Enable GZIP compression for HTTP responses.
+    \item \texttt{server.compression.level} (Default: 6): Compression level (1-9).
+    \item \texttt{server.cors.origin} (Default: *): Allowed CORS origins.
+    \item \texttt{server.cors.methods} (Default: GET,POST,PUT,DELETE): Allowed HTTP methods.
+    \item \texttt{server.trust\_proxy} (Default: true): Trust X-Forwarded-For headers from standard load balancers.
+\end{enumerate}
+
+\section{Database Connections}
+\subsection{MongoDB (Content Store)}
+\begin{enumerate}
+    \item \texttt{db.mongo.uri}: Connection string (e.g., mongodb://user:pass@host:27017/shikshak).
+    \item \texttt{db.mongo.pool\_size} (Default: 10): Max number of connections in the pool.
+    \item \texttt{db.mongo.write\_concern} (Default: majority): Acknowledgement level for writes.
+    \item \texttt{db.mongo.read\_preference} (Default: primaryPreferred): Read from secondary replicas if available.
+    \item \texttt{db.mongo.ssl} (Default: true): Require SSL for connection.
+    \item \texttt{db.mongo.connect\_timeout_ms} (Default: 5000): Connection establishment timeout.
+    \item \texttt{db.mongo.socket\_timeout_ms} (Default: 30000): Socket inactivity timeout.
+\end{enumerate}
+
+\subsection{PostgreSQL (Auth Store)}
+\begin{enumerate}
+    \item \texttt{db.postgres.host}: Database hostname.
+    \item \texttt{db.postgres.port} (Default: 5432): Database port.
+    \item \texttt{db.postgres.username}: Username.
+    \item \texttt{db.postgres.password}: Password (can be encrypted).
+    \item \texttt{db.postgres.database}: Database name.
+    \item \texttt{db.postgres.ssl_mode} (Default: require): SSL strictness.
+    \item \texttt{db.postgres.max_connections} (Default: 20): Connection pool limit.
+    \item \texttt{db.postgres.idle_timeout_ms} (Default: 10000): Time before idle connections are reaped.
+\end{enumerate}
+
+\section{Redis Cache}
+\begin{enumerate}
+    \item \texttt{cache.redis.host}: Redis hostname.
+    \item \texttt{cache.redis.port} (Default: 6379): Redis port.
+    \item \texttt{cache.redis.password}: Redis AUTH password.
+    \item \texttt{cache.redis.tls} (Default: true): Enable TLS.
+    \item \texttt{cache.redis.db_index} (Default: 0): Logical database index.
+    \item \texttt{cache.redis.prefix} (Default: shik:): Key prefix for namespacing.
+    \item \texttt{cache.ttl.standard} (Default: 300): Default cache TTL in seconds.
+    \item \texttt{cache.ttl.long} (Default: 3600): Long-term cache TTL.
+    \item \texttt{cache.vector.index_name}: Name of the RediSearch index for RAG.
+\end{enumerate}
+
+\section{AI Model Parameters}
+These settings control the interaction with OpenAI and other LLM providers.
+\begin{enumerate}
+    \item \texttt{ai.openai.api\_key}: Secret API key.
+    \item \texttt{ai.model.chat} (Default: gpt-4-turbo): Main chat model.
+    \item \texttt{ai.model.embedding} (Default: text-embedding-3-small): Vectorization model.
+    \item \texttt{ai.temperature} (Default: 0.7): Creativity setting.
+    \item \texttt{ai.max\_tokens} (Default: 2000): Max generation length.
+    \item \texttt{ai.eli5.temperature} (Default: 0.9): Higher creativity for ELI5 mode.
+    \item \texttt{ai.context\_window.limit} (Default: 128000): Safety limit for input context.
+    \item \texttt{ai.retrieval.top\_k} (Default: 20): Initial chunks to retrieve.
+    \item \texttt{ai.retrieval.rerank} (Default: true): Enable Cohere reranking.
+    \item \texttt{ai.vision.confidence\_threshold} (Default: 0.8): Minimum confidence for proctoring flags.
+\end{enumerate}
+
+\section{Security \& Privacy}
+\begin{enumerate}
+    \item \texttt{security.jwt.access\_ttl} (Default: 15m): Access token lifetime.
+    \item \texttt{security.jwt.refresh\_ttl} (Default: 7d): Refresh token lifetime.
+    \item \texttt{security.bcrypt.rounds} (Default: 12): Salt rounds for password hashing.
+    \item \texttt{security.rate\_limit.global} (Default: 1000/m): Global API rate limit.
+    \item \texttt{security.rate\_limit.auth} (Default: 5/m): Auth endpoint strict limit.
+    \item \texttt{security.headers.hsts} (Default: true): Enforce HSTS.
+    \item \texttt{security.headers.csp}: Content Security Policy string.
+    \item \texttt{privacy.audit\_log.retention_days} (Default: 90): Metadata retention policy.
+    \item \texttt{privacy.pii.masking} (Default: true): Mask email addresses in logs.
+\end{enumerate}
+
+\section{Feature Flags}
+\begin{enumerate}
+    \item \texttt{feature.beta.dark\_mode} (Default: true): Enable dark mode UI.
+    \item \texttt{feature.beta.voice\_chat} (Default: false): Enable experimental voice mode.
+    \item \texttt{feature.experimental.graph\_view} (Default: false): Enable knowledge graph visualization.
+    \item \texttt{feature.legacy.compat\_mode} (Default: false): Support old mobile clients.
+\end{enumerate}
